@@ -25,21 +25,50 @@ fn count_increases(depths: &[usize]) -> usize {
     inc
 }
 
+struct SlidingWindow<T>
+where
+    T: Clone,
+{
+    buf: Vec<T>,
+    size: usize,
+}
+
+impl<T> SlidingWindow<T>
+where
+    T: Clone,
+    T: std::ops::Add<Output = T>,
+    T: Copy,
+    T: Default,
+{
+    fn new(size: usize) -> SlidingWindow<T> {
+        SlidingWindow {
+            buf: vec![Default::default(); size * 2],
+            size,
+        }
+    }
+
+    fn set(&mut self, val: T, offset: usize) {
+        for i in offset..(offset + self.size) {
+            let idx = i % (self.size * 2);
+            self.buf[idx] = self.buf[idx] + val;
+        }
+        self.buf[(offset + self.size) % (self.size * 2)] = Default::default();
+    }
+
+    fn get(&self, offset: usize) -> T {
+        self.buf[offset % (self.size * 2)]
+    }
+}
+
 fn count_window_increases(depths: &[usize]) -> usize {
     const WIN_SIZE: usize = 3;
-    let mut buf = [0; WIN_SIZE * 2];
     let mut inc = 0;
 
+    let mut win: SlidingWindow<usize> = SlidingWindow::new(WIN_SIZE);
     for (i, d) in depths.iter().enumerate() {
-        for j in i..(WIN_SIZE + i) {
-            buf[j % (WIN_SIZE * 2)] += d;
-        }
-        if i >= WIN_SIZE {
-            // start using results and clearing
-            if buf[i % (WIN_SIZE * 2)] > buf[(i - 1) % (WIN_SIZE * 2)] {
-                inc += 1;
-            }
-            buf[(i + WIN_SIZE) % (WIN_SIZE * 2)] = 0;
+        win.set(*d, i);
+        if i >= WIN_SIZE && win.get(i) > win.get(i - 1) {
+            inc += 1;
         }
     }
     inc
