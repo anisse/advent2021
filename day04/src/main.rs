@@ -6,6 +6,9 @@ fn main() {
     //part 1
     let win_score = winning_score(&boards, &draws);
     println!("Winning board score: {}", win_score);
+    //part 2
+    let lose_score = losing_score(&boards, &draws);
+    println!("Losing board score: {}", lose_score);
 }
 fn parse(input: &str) -> (Vec<Board>, Vec<u8>) {
     let mut lines = input.lines();
@@ -82,12 +85,38 @@ fn score_sum(board: BoardRef, drawn: &[Vec<bool>]) -> usize {
         .sum()
 }
 
+fn losing_score(boards: &[Board], draws: &[u8]) -> usize {
+    let mut drawn = vec![vec![vec![false; 5]; 5]; boards.len()];
+    let mut won = 0;
+    let mut winners = vec![false; boards.len()];
+    for draw in draws.iter() {
+        for (i, board) in boards.iter().enumerate() {
+            if winners[i] {
+                continue;
+            }
+            if let Some((row, col)) = board_has(board, *draw) {
+                drawn[i][row][col] = true;
+                if is_winning(&drawn[i], row, col) {
+                    won += 1;
+                    winners[i] = true;
+                    if won == boards.len() {
+                        // this is the last one
+                        return score_sum(board, &drawn[i]) * board[row][col] as usize;
+                    }
+                }
+            }
+        }
+    }
+    0
+}
+
 #[test]
 fn test() {
     let (boards, draws) = parse(include_str!("../sample.txt"));
-    dbg!(&draws);
-    dbg!(&boards);
     //part 1
     let win_score = winning_score(&boards, &draws);
     assert_eq!(win_score, 4512);
+    //part 2
+    let lose_score = losing_score(&boards, &draws);
+    assert_eq!(lose_score, 1924);
 }
