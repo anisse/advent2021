@@ -7,6 +7,9 @@ fn main() {
     // part 1
     let fish_count = simulate_fish(&fish_school, 80);
     println!("Fish after 80 days: {}", fish_count);
+    // part 2
+    let fish_count = simulate_fish_faster(&fish_school, 256);
+    println!("Fish after 256 days: {}", fish_count);
 }
 fn parse(input: &str) -> Vec<Fish> {
     input
@@ -17,7 +20,7 @@ fn parse(input: &str) -> Vec<Fish> {
         })
         .collect()
 }
-fn simulate_fish(school: &[Fish], days: u8) -> usize {
+fn simulate_fish(school: &[Fish], days: u16) -> usize {
     let mut school = school.to_vec();
     for _ in 0..days {
         let mut new = 0;
@@ -37,6 +40,24 @@ fn simulate_fish(school: &[Fish], days: u8) -> usize {
     school.len()
 }
 
+fn simulate_fish_faster(school: &[Fish], days: u16) -> usize {
+    let mut generations = [0; 9];
+
+    for f in school.iter() {
+        generations[f.timer as usize] += 1;
+    }
+    for _ in 0..days {
+        let tmp = generations[0];
+        for i in 0..8 {
+            generations[i] = generations[i + 1];
+        }
+        generations[8] = tmp;
+        generations[6] += tmp;
+    }
+
+    generations.iter().sum()
+}
+
 #[test]
 fn test() {
     let fish_school = parse(include_str!("../sample.txt"));
@@ -45,4 +66,7 @@ fn test() {
     assert_eq!(26, fish_count);
     let fish_count = simulate_fish(&fish_school, 80);
     assert_eq!(5934, fish_count);
+    // part 2
+    let fish_count = simulate_fish_faster(&fish_school, 256);
+    assert_eq!(26984457539, fish_count);
 }
