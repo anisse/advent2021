@@ -46,11 +46,7 @@ fn adjust_crabs2(heights: &[i16]) -> usize {
 
 fn cost(x: i16, d: usize) -> usize {
     let diff = (x as i32 - d as i32).abs() as usize;
-    let mut cost = 0;
-    for i in 1..=diff {
-        cost += i
-    }
-    cost
+    diff * (diff + 1) / 2
 }
 
 #[test]
