@@ -174,8 +174,17 @@ fn digit(d: &str, s: &HashMap<char, Segment>) -> u8 {
     *numbers.get(&segval).expect("no segment to num match")
 }
 
-fn bitval(a: &[Segment]) -> usize {
-    a.iter().map(|x| *x as usize).sum()
+const fn bitval(a: &[Segment]) -> usize {
+    let mut sum = 0;
+    let mut i = 0;
+    loop {
+        sum += a[i] as usize;
+        i += 1;
+        if i == a.len() {
+            break;
+        }
+    }
+    sum
 }
 
 #[test]
