@@ -4,14 +4,21 @@ fn main() {
     let res = operation(&things);
     println!("Summary: {}", res);
     //part 2
-    //let res = operation2(&diag);
+    //let res = operation2(&things);
     //println!("Summary2: {}", res);
 }
 fn parse(input: &str) -> Vec<u8> {
     input.lines().map(|x| x.parse().expect("not int")).collect()
 }
 fn operation(things: &[u8]) -> usize {
-    todo!()
+    let mut count = 0;
+    for _ in things.iter() {
+        if true {
+            count += 1
+        }
+        todo!()
+    }
+    count
 }
 
 #[test]
