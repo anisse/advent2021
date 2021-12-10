@@ -2,14 +2,15 @@ fn main() {
     let subsystems = parse(include_str!("../input.txt"));
     //part 1
     let score = syntax_errors(&subsystems);
-    println!("Summary: {}", score);
+    println!("Error score: {}", score);
     //part 2
-    //let score = syntax_errors2(&subsystems);
-    //println!("Summary2: {}", score);
+    let score = incompletes(&subsystems);
+    println!("Incomplete score: {}", score);
 }
 fn parse(input: &str) -> Vec<Vec<u8>> {
     input.lines().map(|x| x.bytes().collect()).collect()
 }
+
 fn syntax_errors(subsystems: &[Vec<u8>]) -> usize {
     let mut score = 0;
     for s in subsystems.iter() {
@@ -85,6 +86,51 @@ fn close_score(c: u8) -> usize {
     }
 }
 
+fn incompletes(subsystems: &[Vec<u8>]) -> usize {
+    let mut scores: Vec<usize> = Vec::new();
+    for s in subsystems.iter() {
+        let mut stack: Vec<u8> = Vec::new();
+        let mut illegal = false;
+
+        for c in s.iter() {
+            if let Some(m) = close_match(*c) {
+                if let Some(prev) = stack.pop() {
+                    if prev != m {
+                        illegal = true;
+                    }
+                } else {
+                    illegal = true;
+                }
+                if illegal {
+                    break;
+                }
+            } else {
+                stack.push(*c);
+            }
+        }
+        if !illegal {
+            scores.push(incomplete_score(&stack))
+        }
+    }
+    scores.sort_unstable();
+    scores[scores.len() / 2]
+}
+
+fn incomplete_score(stack: &[u8]) -> usize {
+    let mut score = 0;
+    for c in stack.iter().rev() {
+        let s = match c {
+            b'(' => 1,
+            b'[' => 2,
+            b'{' => 3,
+            b'<' => 4,
+            _ => unreachable!(),
+        };
+        score = score * 5 + s;
+    }
+    score
+}
+
 #[test]
 fn test() {
     let subsystems = parse(include_str!("../sample.txt"));
@@ -92,6 +138,6 @@ fn test() {
     let score = syntax_errors(&subsystems);
     assert_eq!(score, 26397);
     //part 2
-    // let score = syntax_errors2(&subsystems);
-    // assert_eq!(score, 42);
+    let score = incompletes(&subsystems);
+    assert_eq!(score, 288957);
 }
