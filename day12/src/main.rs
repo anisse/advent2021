@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 type Connection<'a> = [&'a str; 2];
 
@@ -10,8 +10,8 @@ fn main() {
     let path_count = count_paths(&map);
     println!("Number of paths: {}", path_count);
     //part 2
-    //let path_count = count_paths2(&map);
-    //println!("Summary2: {}", path_count);
+    let path_count = count_paths_2(&map);
+    println!("Number of paths 2: {}", path_count);
 }
 fn parse(input: &str) -> Vec<Connection> {
     input
@@ -27,10 +27,10 @@ fn parse(input: &str) -> Vec<Connection> {
 fn count_paths(map: &[Connection]) -> usize {
     let g = build_graph(map);
     let mut p = vec!["start".to_string()];
-    find_paths(&g, &mut p)
+    find_paths(&g, &mut p, check_small_caves)
 }
 
-fn find_paths(g: &Graph, prev: &mut Vec<String>) -> usize {
+fn find_paths(g: &Graph, prev: &mut Vec<String>, check_caves: fn(&[String]) -> bool) -> usize {
     let cur = prev.last().expect("no last element");
     let v = g
         .get(cur as &str)
@@ -43,8 +43,8 @@ fn find_paths(g: &Graph, prev: &mut Vec<String>) -> usize {
         }
         let x: String = (**next).to_owned().clone();
         prev.push(x);
-        if check_small_caves(prev) {
-            count += find_paths(g, prev);
+        if check_caves(prev) {
+            count += find_paths(g, prev, check_caves);
         }
         prev.pop();
     }
@@ -83,6 +83,32 @@ fn build_graph<'a>(map: &[Connection<'a>]) -> Graph<'a, 'a> {
     }
     g
 }
+fn count_paths_2(map: &[Connection]) -> usize {
+    let g = build_graph(map);
+    let mut p = vec!["start".to_string()];
+    find_paths(&g, &mut p, check_small_caves_2)
+}
+
+fn check_small_caves_2(p: &[String]) -> bool {
+    let mut small: HashSet<String> = HashSet::new();
+    let mut single_small_cave = false;
+    for cave in p.iter().skip(1) {
+        if cave == "start" {
+            return false;
+        }
+        if is_lower(cave) {
+            if small.get(cave).is_some() {
+                if single_small_cave {
+                    return false;
+                }
+                single_small_cave = true;
+            } else {
+                small.insert(cave.clone());
+            }
+        }
+    }
+    true
+}
 
 #[test]
 fn test() {
@@ -98,13 +124,13 @@ fn test() {
     //part 1 example 3
     let path_count = count_paths(&map3);
     assert_eq!(path_count, 226);
-    ////part 2
-    //let path_count = count_paths_2(&map);
-    //assert_eq!(path_count, 36);
-    ////part 2 example 2
-    //let path_count = count_paths_2(&map2);
-    //assert_eq!(path_count, 103);
-    ////part 2 example 3
-    //let path_count = count_paths_2(&map3);
-    //assert_eq!(path_count, 3509);
+    //part 2
+    let path_count = count_paths_2(&map);
+    assert_eq!(path_count, 36);
+    //part 2 example 2
+    let path_count = count_paths_2(&map2);
+    assert_eq!(path_count, 103);
+    //part 2 example 3
+    let path_count = count_paths_2(&map3);
+    assert_eq!(path_count, 3509);
 }
