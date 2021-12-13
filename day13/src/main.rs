@@ -16,9 +16,9 @@ fn main() {
     let dot_count = first_fold_dots(&dots, &instructions);
     println!("Dots after first fold: {}", dot_count);
     //part 2
-    // let dot_map = fold_all(&dots, &instructions);
-    // println!("Eight capital letters");
-    // debug_map(dot_map);
+    let dot_map = fold_all(&dots, &instructions);
+    println!("Eight capital letters:");
+    debug_map(&dot_map.iter().copied().collect::<Vec<_>>());
 }
 fn parse(input: &str) -> (Vec<Dot>, Vec<Instruction>) {
     let mut dots = Vec::new();
@@ -56,10 +56,8 @@ fn parse(input: &str) -> (Vec<Dot>, Vec<Instruction>) {
 
 fn first_fold_dots(dots: &[Dot], instructions: &[Instruction]) -> usize {
     let mut dotset: HashSet<Dot> = dots.iter().copied().collect();
-    debug_map(dots);
 
     fold(&mut dotset, &instructions[0]);
-    debug_map(&dotset.iter().copied().collect::<Vec<_>>());
     dotset.len()
 }
 
@@ -132,13 +130,19 @@ fn update_coord(d: &Dot, f: &Instruction) -> Action {
     }
 }
 
+fn fold_all(dots: &[Dot], instructions: &[Instruction]) -> HashSet<Dot> {
+    let mut dotset: HashSet<Dot> = dots.iter().copied().collect();
+
+    for f in instructions {
+        fold(&mut dotset, f);
+    }
+    dotset
+}
+
 #[test]
 fn test() {
     let (dots, instructions) = parse(include_str!("../sample.txt"));
     //part 1
     let dot_count = first_fold_dots(&dots, &instructions);
     assert_eq!(dot_count, 17);
-    //part 2
-    // let dot_count = first_fold_dots2(&(dots, instructions));
-    // assert_eq!(dot_count, 42);
 }
