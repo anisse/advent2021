@@ -6,8 +6,8 @@ fn main() {
     let qty = polymer_synth(&template, &ruleset, 10);
     println!("Most common - least common: {}", qty);
     //part 2
-    //let qty = polymer_synth2(&template, ruleset);
-    //println!("Summary2: {}", qty);
+    let qty = polymer_synth2(&template, &ruleset, 40);
+    println!("Most common - least common after 40 generations: {}", qty);
 }
 
 type RuleSet = HashMap<[u8; 2], u8>;
@@ -58,6 +58,60 @@ fn step(template: &[u8], ruleset: &RuleSet) -> Vec<u8> {
     polymer
 }
 
+type Freq = HashMap<u8, usize>;
+type FreqCache = HashMap<([u8; 2], usize), Freq>;
+
+fn polymer_synth2(template: &[u8], ruleset: &RuleSet, steps: usize) -> usize {
+    let mut freq = Freq::new();
+    let mut fc = FreqCache::new();
+    for pair in template.windows(2) {
+        let p = pair.try_into().expect("not a pair");
+        let f = pair_freq(p, ruleset, steps - 1, &mut fc);
+        *freq.entry(p[0]).or_insert(0) += 1;
+        for (k, v) in f {
+            *freq.entry(k).or_insert(0) += v;
+        }
+    }
+    *freq.entry(*template.last().expect("no last")).or_insert(0) += 1;
+
+    let max = freq.iter().max_by_key(|x| x.1).expect("no max").1;
+    let min = freq.iter().min_by_key(|x| x.1).expect("no min").1;
+    max - min
+}
+
+fn pair_freq(pair: &[u8; 2], ruleset: &RuleSet, remaining: usize, fc: &mut FreqCache) -> Freq {
+    if let Some(freq) = fc.get(&(*pair, remaining)) {
+        return freq.clone();
+    }
+    let mut freq = Freq::new();
+
+    let insert = ruleset[pair];
+    *freq.entry(insert).or_insert(0) += 1;
+    if remaining > 0 {
+        let f1 = pair_freq(&[pair[0], insert], ruleset, remaining - 1, fc);
+        let f2 = pair_freq(&[insert, pair[1]], ruleset, remaining - 1, fc);
+        for (k, v) in f1 {
+            *freq.entry(k).or_insert(0) += v;
+        }
+        for (k, v) in f2 {
+            *freq.entry(k).or_insert(0) += v;
+        }
+    }
+    /*
+    if remaining <= 2 {
+        println!(
+            "remaining: {} current: {}{}{} : {:?}",
+            remaining, pair[0] as char, insert as char, pair[1] as char, &freq
+        );
+    }
+    */
+
+    let res = freq.clone();
+    fc.insert((*pair, remaining), freq);
+
+    res
+}
+
 #[test]
 fn test() {
     let (template, ruleset) = parse(include_str!("../sample.txt"));
@@ -65,6 +119,6 @@ fn test() {
     let qty = polymer_synth(&template, &ruleset, 10);
     assert_eq!(qty, 1588);
     //part 2
-    // let qty = polymer_synth2(&template, ruleset, 40);
-    // assert_eq!(qty, 2188189693529);
+    let qty = polymer_synth2(&template, &ruleset, 40);
+    assert_eq!(qty, 2188189693529);
 }
