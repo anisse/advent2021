@@ -90,11 +90,8 @@ fn pair_freq(pair: &[u8; 2], ruleset: &RuleSet, remaining: usize, fc: &mut FreqC
     if remaining > 0 {
         let f1 = pair_freq(&[pair[0], insert], ruleset, remaining - 1, fc);
         let f2 = pair_freq(&[insert, pair[1]], ruleset, remaining - 1, fc);
-        for (k, v) in f1 {
-            *freq.entry(k).or_insert(0) += v;
-        }
-        for (k, v) in f2 {
-            *freq.entry(k).or_insert(0) += v;
+        for (k, v) in f1.iter().chain(f2.iter()) {
+            *freq.entry(*k).or_insert(0) += v;
         }
     }
     /*
