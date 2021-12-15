@@ -16,7 +16,7 @@ fn parse(input: &str) -> Vec<Vec<u8>> {
 fn shortest_path(map: &[Vec<u8>]) -> usize {
     let mut minmap = vec![vec![usize::MAX; map[0].len()]; map.len()];
     //let mut tmp = Vec::new();
-    shortest_path_recur(map, 0, &mut minmap, 0, 0);
+    shortest_path_recur(map, 0, &mut minmap, 20, 0, 0);
     let end_x = map[0].len() - 1;
     let end_y = map.len() - 1;
     /*
@@ -34,6 +34,7 @@ fn shortest_path_recur(
     map: &[Vec<u8>],
     total: usize,
     minmap: &mut Vec<Vec<usize>>,
+    backbudget: usize,
     x: usize,
     y: usize,
 ) {
@@ -46,13 +47,15 @@ fn shortest_path_recur(
     if x == end_x && y == end_y {
         return;
     }
-    for i in 0..2 {
-        let (x2, y2) = match i {
-            0 if x < end_x => (x + 1, y),
-            1 if y < end_y => (x, y + 1),
+    for i in 0..4 {
+        let (x2, y2, back2) = match i {
+            0 if x < end_x => (x + 1, y, backbudget),
+            1 if y < end_y => (x, y + 1, backbudget),
+            2 if backbudget > 0 && x > 0 => (x - 1, y, backbudget - 1),
+            3 if backbudget > 0 && y > 0 => (x, y - 1, backbudget - 1),
             _ => continue,
         };
-        shortest_path_recur(map, total + map[y2][x2] as usize, minmap, x2, y2);
+        shortest_path_recur(map, total + map[y2][x2] as usize, minmap, back2, x2, y2);
     }
 }
 fn bigger_map(map: &[Vec<u8>]) -> Vec<Vec<u8>> {
