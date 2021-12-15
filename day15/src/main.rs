@@ -100,6 +100,10 @@ fn test() {
     //part 2
     let risk_level = shortest_path25(&chiton_map);
     assert_eq!(risk_level, 315);
+
+    let chiton_map = parse(include_str!("../backtracking.txt"));
+    let risk_level = shortest_path(&chiton_map);
+    assert_eq!(risk_level, 8);
 }
 
 #[test]
