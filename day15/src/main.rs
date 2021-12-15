@@ -46,12 +46,10 @@ fn shortest_path_recur(
     if x == end_x && y == end_y {
         return;
     }
-    for i in 0..4 {
+    for i in 0..2 {
         let (x2, y2) = match i {
-            0 if y > 0 => (x, y - 1),
-            1 if x > 0 => (x - 1, y),
-            2 if x < end_x => (x + 1, y),
-            3 if y < end_y => (x, y + 1),
+            0 if x < end_x => (x + 1, y),
+            1 if y < end_y => (x, y + 1),
             _ => continue,
         };
         shortest_path_recur(map, total + map[y2][x2] as usize, minmap, x2, y2);
