@@ -58,12 +58,6 @@ fn shortest_path_recur(
     }
 }
 
-/*
-fn risk_level(map: &[Vec<u8>], path: &[(usize, usize)]) -> usize {
-    path.iter().map(|(x, y)| map[*y][*x] as usize).sum()
-}
-*/
-
 #[test]
 fn test() {
     let chiton_map = parse(include_str!("../sample.txt"));
