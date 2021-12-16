@@ -11,7 +11,6 @@ fn main() {
     println!("Evaluation: {}", result);
 }
 fn parse(input: &str) -> BitVec {
-    println!("{}", input);
     input
         .trim()
         .chars()
@@ -37,7 +36,6 @@ fn consume(b: &mut BitVec, bits: usize) -> usize {
 
 fn print_bitvec(data: BitVecRef, bits: usize) {
     data.iter().take(bits).for_each(|b| print!("{}", *b as u8));
-    println!();
 }
 
 fn decode_versions(transmission: BitVecRef) -> usize {
@@ -50,64 +48,40 @@ fn decode_versions(transmission: BitVecRef) -> usize {
 }
 
 fn decode_packet(data: &mut BitVec) -> usize {
-    println!("Packet start, remaining: {}", data.len());
-    print_bitvec(data, 32);
     let mut version = consume(data, 3);
-    println!("Version: {}", version);
 
     let packet_type = consume(data, 3);
     match packet_type {
         //type
         4 => {
             // literal
-            print_bitvec(data, 32);
-            print!("Literal .");
-            while (consume(data, 5) & 0x10) != 0 {
-                print!(".");
-            }
-            println!(" done");
+            while (consume(data, 5) & 0x10) != 0 {}
         }
         _ => {
             // operator
             let length_type = consume(data, 1);
-            println!("Operator with length_type {}", length_type);
             match length_type {
                 // length type ID
                 0 => {
                     let total = consume(data, 15);
                     let current = data.len();
-                    println!("{} bits in sub packets", total);
                     while data.len() != (current - total) {
                         version += decode_packet(data);
                     }
-                    println!("got all {} bits in sub packets", total);
                 }
                 1 => {
                     let mut length = consume(data, 11);
-                    println!("{} sub packets", length);
                     while length > 0 {
                         version += decode_packet(data);
                         length -= 1;
                     }
-                    println!("got all {} subpackets", length);
                 }
                 _ => {
-                    println!("Unknown length type");
                     print_bitvec(data, 32);
                     unreachable!();
                 }
             };
-            //consume(data, length);
-        } /*
-          _ => {
-              print_bitvec(data, 32);
-              panic!(
-                  "Unknown packet type {} (remaining: {})",
-                  packet_type,
-                  data.len()
-              );
-          }
-          */
+        }
     }
 
     version
@@ -149,29 +123,23 @@ fn decode_operator(data: &mut BitVec) -> Vec<Expression> {
     let mut exp: Vec<Expression> = Vec::new();
     // operator
     let length_type = consume(data, 1);
-    println!("Operator with length_type {}", length_type);
     match length_type {
         // length type ID
         0 => {
             let total = consume(data, 15);
             let current = data.len();
-            println!("{} bits in sub packets", total);
             while data.len() != (current - total) {
                 exp.push(parse_packet(data));
             }
-            println!("got all {} bits in sub packets", total);
         }
         1 => {
             let mut length = consume(data, 11);
-            println!("{} sub packets", length);
             while length > 0 {
                 exp.push(parse_packet(data));
                 length -= 1;
             }
-            println!("got all {} subpackets", length);
         }
         _ => {
-            println!("Unknown length type");
             print_bitvec(data, 32);
             unreachable!();
         }
@@ -180,24 +148,18 @@ fn decode_operator(data: &mut BitVec) -> Vec<Expression> {
 }
 
 fn parse_packet(data: &mut BitVec) -> Expression {
-    println!("Packet start, remaining: {}", data.len());
-    print_bitvec(data, 32);
-    let version = consume(data, 3);
-    println!("Version: {}", version);
+    consume(data, 3);
 
     let packet_type = consume(data, 3);
     match packet_type {
         4 => {
             // literal
-            print_bitvec(data, 32);
-            print!("Literal .");
             let mut nibble = consume(data, 5);
             let mut l = nibble & 0xF;
             while (nibble & 0x10) != 0 {
                 nibble = consume(data, 5);
                 l = (l << 4) | (nibble & 0xF);
             }
-            println!(" done: {}", l);
             Expression::Literal(l)
         }
         0 => Expression::Sum(decode_operator(data)),
