@@ -7,8 +7,8 @@ fn main() {
     let versum = decode_versions(&transmission);
     println!("Sum of packet versions : {}", versum);
     //part 2
-    //let versum = decode_versions2(&transmission);
-    //println!("Sum of packet versions 2: {}", versum);
+    let result = eval_expressions(&transmission);
+    println!("Evaluation: {}", result);
 }
 fn parse(input: &str) -> BitVec {
     println!("{}", input);
@@ -113,6 +113,120 @@ fn decode_packet(data: &mut BitVec) -> usize {
     version
 }
 
+enum Expression {
+    Sum(Vec<Expression>),
+    Product(Vec<Expression>),
+    Minimum(Vec<Expression>),
+    Maximum(Vec<Expression>),
+    Greater((Box<Expression>, Box<Expression>)),
+    Less((Box<Expression>, Box<Expression>)),
+    Equal((Box<Expression>, Box<Expression>)),
+    Literal(usize),
+}
+
+impl Expression {
+    fn eval(&self) -> usize {
+        match self {
+            Expression::Sum(e) => e.iter().map(|x| x.eval()).sum(),
+            Expression::Product(e) => e.iter().map(|x| x.eval()).reduce(|x, y| x * y).unwrap(),
+            Expression::Minimum(e) => e.iter().map(|x| x.eval()).min().unwrap(),
+            Expression::Maximum(e) => e.iter().map(|x| x.eval()).max().unwrap(),
+            Expression::Greater((a, b)) => (a.eval() > b.eval()) as usize,
+            Expression::Less((a, b)) => (a.eval() < b.eval()) as usize,
+            Expression::Equal((a, b)) => (a.eval() == b.eval()) as usize,
+            Expression::Literal(a) => *a,
+        }
+    }
+}
+
+fn eval_expressions(transmission: BitVecRef) -> usize {
+    let mut b: BitVec = transmission.to_vec();
+    let e = parse_packet(&mut b);
+    e.eval()
+}
+
+fn decode_operator(data: &mut BitVec) -> Vec<Expression> {
+    let mut exp: Vec<Expression> = Vec::new();
+    // operator
+    let length_type = consume(data, 1);
+    println!("Operator with length_type {}", length_type);
+    match length_type {
+        // length type ID
+        0 => {
+            let total = consume(data, 15);
+            let current = data.len();
+            println!("{} bits in sub packets", total);
+            while data.len() != (current - total) {
+                exp.push(parse_packet(data));
+            }
+            println!("got all {} bits in sub packets", total);
+        }
+        1 => {
+            let mut length = consume(data, 11);
+            println!("{} sub packets", length);
+            while length > 0 {
+                exp.push(parse_packet(data));
+                length -= 1;
+            }
+            println!("got all {} subpackets", length);
+        }
+        _ => {
+            println!("Unknown length type");
+            print_bitvec(data, 32);
+            unreachable!();
+        }
+    }
+    exp
+}
+
+fn parse_packet(data: &mut BitVec) -> Expression {
+    println!("Packet start, remaining: {}", data.len());
+    print_bitvec(data, 32);
+    let version = consume(data, 3);
+    println!("Version: {}", version);
+
+    let packet_type = consume(data, 3);
+    match packet_type {
+        4 => {
+            // literal
+            print_bitvec(data, 32);
+            print!("Literal .");
+            let mut nibble = consume(data, 5);
+            let mut l = nibble & 0xF;
+            while (nibble & 0x10) != 0 {
+                nibble = consume(data, 5);
+                l = (l << 4) | (nibble & 0xF);
+            }
+            println!(" done: {}", l);
+            Expression::Literal(l)
+        }
+        0 => Expression::Sum(decode_operator(data)),
+        1 => Expression::Product(decode_operator(data)),
+        2 => Expression::Minimum(decode_operator(data)),
+        3 => Expression::Maximum(decode_operator(data)),
+        5 | 6 | 7 => {
+            let mut sub_exp = decode_operator(data);
+            assert_eq!(sub_exp.len(), 2);
+            let x2 = Box::new(sub_exp.pop().unwrap());
+            let x1 = Box::new(sub_exp.pop().unwrap());
+            match packet_type {
+                5 => Expression::Greater((x1, x2)),
+                6 => Expression::Less((x1, x2)),
+                7 => Expression::Equal((x1, x2)),
+                _ => unreachable!(),
+            }
+        }
+        _ => {
+            print_bitvec(data, 32);
+            panic!(
+                "Unknown packet type {} (remaining: {})",
+                packet_type,
+                data.len()
+            );
+        }
+    }
+}
+
 #[test]
 fn test() {
     //part 1
@@ -126,6 +240,12 @@ fn test() {
         31
     );
     //part 2
-    // let versum = decode_versions2(&transmission);
-    // assert_eq!(versum, 42);
+    assert_eq!(eval_expressions(&parse("C200B40A82")), 3);
+    assert_eq!(eval_expressions(&parse("04005AC33890")), 54);
+    assert_eq!(eval_expressions(&parse("880086C3E88112")), 7);
+    assert_eq!(eval_expressions(&parse("CE00C43D881120")), 9);
+    assert_eq!(eval_expressions(&parse("D8005AC2A8F0")), 1);
+    assert_eq!(eval_expressions(&parse("F600BC2D8F")), 0);
+    assert_eq!(eval_expressions(&parse("9C005AC2F8F0")), 0);
+    assert_eq!(eval_expressions(&parse("9C0141080250320F1802104A08")), 1);
 }
