@@ -1,3 +1,5 @@
+use std::collections::BinaryHeap;
+
 fn main() {
     let chiton_map = parse(include_str!("../input.txt"));
     //part 1
@@ -57,6 +59,62 @@ fn shortest_path_recur(
         shortest_path_recur(map, total + map[y2][x2] as usize, minmap, x2, y2);
     }
 }
+
+#[derive(Eq, PartialEq)]
+struct Pos {
+    x: usize,
+    y: usize,
+    total: usize,
+}
+
+impl Ord for Pos {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // we actually want to have smallest first, so invert comparison for simplicity
+        other.total.cmp(&self.total)
+    }
+}
+impl PartialOrd for Pos {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+fn shortest_path_iter(map: &[Vec<u8>]) -> usize {
+    let end_x = map[0].len() - 1;
+    let end_y = map.len() - 1;
+    let mut next: BinaryHeap<Pos> = BinaryHeap::new();
+    let mut minmap = vec![vec![usize::MAX; map[0].len()]; map.len()];
+
+    next.push(Pos {
+        x: 0,
+        y: 0,
+        total: 0,
+    });
+    while let Some(Pos { x, y, total }) = next.pop() {
+        if total >= minmap[y][x] || total > (x + y) * 9 {
+            continue;
+        }
+        minmap[y][x] = total;
+        if x == end_x && y == end_y {
+            return total;
+        }
+        for i in 0..4 {
+            let (x2, y2) = match i {
+                0 if x < end_x => (x + 1, y),
+                1 if y < end_y => (x, y + 1),
+                2 if x > 0 => (x - 1, y),
+                3 if y > 0 => (x, y - 1),
+                _ => continue,
+            };
+            next.push(Pos {
+                x: x2,
+                y: y2,
+                total: total + map[y2][x2] as usize,
+            });
+        }
+    }
+    0
+}
 fn bigger_map(map: &[Vec<u8>]) -> Vec<Vec<u8>> {
     let size_x = map[0].len();
     let size_y = map.len();
@@ -81,7 +139,7 @@ fn bigger_map(map: &[Vec<u8>]) -> Vec<Vec<u8>> {
 }
 fn shortest_path25(map: &[Vec<u8>]) -> usize {
     let bigmap = bigger_map(map);
-    shortest_path(&bigmap)
+    shortest_path_iter(&bigmap)
 }
 
 fn print_map(map: &[Vec<u8>]) {
