@@ -10,8 +10,8 @@ fn main() {
     let highest = launch_highest(&area);
     println!("Highest possible: {}", highest);
     //part 2
-    //let highest = launch_highest2(&area);
-    //println!("Summary2: {}", highest);
+    let total = velocities_on_target(&area);
+    println!("Number of possible velocities: {}", total);
 }
 fn parse(input: &str) -> Area {
     let xy: Vec<i32> = input
@@ -42,14 +42,71 @@ fn launch_highest(area: &Area) -> i32 {
     }
     count
 }
+fn velocities_on_target(area: &Area) -> usize {
+    let ymax = -area.ymin - 1;
+    let ymin = area.ymin;
+    let xmin = xmin(area.xmin);
+    let xmax = area.xmax;
+    assert!(xmin < xmax);
+    assert!(ymin < ymax);
+    let mut count = 0;
+    for x in xmin..=xmax {
+        for y in ymin..=ymax {
+            if sim(area, x, y) {
+                //println!("v=({}, {})", x, y);
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn xmin(x: i32) -> i32 {
+    let mut min = (x, x * 2);
+    for i in (0..(x / 2 + 1)).rev() {
+        let c = count_down(i);
+        if i < min.0 && c >= x {
+            min = (i, c);
+        }
+    }
+    min.0
+}
+fn count_down(mut x: i32) -> i32 {
+    let mut count = 0;
+    while x > 0 {
+        count += x;
+        x -= 1;
+    }
+    count
+}
+
+fn sim(a: &Area, mut vx: i32, mut vy: i32) -> bool {
+    let mut x = 0;
+    let mut y = 0;
+    while x <= a.xmax && y >= a.ymin {
+        if x >= a.xmin && x <= a.xmax && y >= a.ymin && y <= a.ymax {
+            return true;
+        }
+        x += vx;
+        y += vy;
+        vx = match vx.cmp(&0) {
+            std::cmp::Ordering::Less => vx + 1,
+            std::cmp::Ordering::Equal => vx,
+            std::cmp::Ordering::Greater => vx - 1,
+        };
+        vy -= 1;
+    }
+    false
+}
 
 #[test]
 fn test() {
+    assert_eq!(xmin(20), 6);
     let area = parse(include_str!("../sample.txt"));
     //part 1
     let highest = launch_highest(&area);
     assert_eq!(highest, 45);
     //part 2
-    // let highest = launch_highest2(&area);
-    // assert_eq!(highest, 42);
+    let total = velocities_on_target(&area);
+    assert_eq!(total, 112);
 }
