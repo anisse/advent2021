@@ -3,24 +3,14 @@ use std::fmt::Display;
 #[derive(Debug)]
 enum Node {
     Leaf(u8),
-    Pair(Tree),
-}
-#[derive(Debug)]
-struct Tree {
-    left: Box<Node>,
-    right: Box<Node>,
+    Pair { l: Box<Node>, r: Box<Node> },
 }
 
-impl Display for Tree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "[{},{}]", self.left, self.right)
-    }
-}
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
             Node::Leaf(x) => write!(f, "{}", x),
-            Node::Pair(t) => write!(f, "{}", t),
+            Node::Pair { l, r } => write!(f, "[{},{}]", l, r),
         }
     }
 }
@@ -33,14 +23,14 @@ fn main() {
     //let magnitude = addition_magniture2(&pairs);
     //println!("Magnitude2: {}", magnitude);
 }
-fn parse(input: &str) -> Vec<Tree> {
+fn parse(input: &str) -> Vec<Node> {
     input
         .lines()
         .map(|l| {
             let (tree, len) = parse_tree(l);
             assert_eq!(len, l.len());
-            if let Node::Pair(t) = *tree {
-                t
+            if let Node::Pair { l: _, r: _ } = *tree {
+                *tree
             } else {
                 panic!("not tree root")
             }
@@ -52,15 +42,15 @@ fn parse_tree(input: &str) -> (Box<Node>, usize) {
     let mut pos;
     assert_eq!(input.chars().next(), Some('['));
     pos = 1;
-    let (left, l1) = parse_node(&input[pos..]);
+    let (l, l1) = parse_node(&input[pos..]);
     pos += l1;
     assert_eq!(input.chars().nth(pos), Some(','));
     pos += 1;
-    let (right, l2) = parse_node(&input[pos..]);
+    let (r, l2) = parse_node(&input[pos..]);
     pos += l2;
     assert_eq!(input.chars().nth(pos), Some(']'));
     pos += 1;
-    (Box::new(Node::Pair(Tree { left, right })), pos)
+    (Box::new(Node::Pair { l, r }), pos)
 }
 fn parse_node(input: &str) -> (Box<Node>, usize) {
     match input.chars().next().unwrap() {
@@ -79,7 +69,7 @@ fn parse_literal(input: &str) -> (Box<Node>, usize) {
         s.len(),
     )
 }
-fn addition_magniture(pairs: &[Tree]) -> usize {
+fn addition_magniture(pairs: &[Node]) -> usize {
     let mut count = 0;
     for _ in pairs.iter() {
         if true {
