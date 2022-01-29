@@ -8,8 +8,8 @@ type Lin<T> = Rc<RefCell<T>>;
 #[derive(Debug)]
 struct Num {
     val: u8,
-    lneigh: Link<Num>,
-    rneigh: Link<Num>,
+    lneigh: Link<Node>,
+    rneigh: Link<Node>,
 }
 impl Display for Num {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
@@ -19,14 +19,14 @@ impl Display for Num {
 
 #[derive(Debug)]
 enum Node {
-    Leaf(Link<Num>),
+    Leaf(Num),
     Pair { l: Link<Node>, r: Link<Node> },
 }
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Node::Leaf(num) => write!(f, "{}", (**num.as_ref().unwrap()).borrow()),
+            Node::Leaf(num) => write!(f, "{}", num),
             Node::Pair { l, r } => write!(
                 f,
                 "[{},{}]",
@@ -50,28 +50,73 @@ enum Dir {
 }
 
 struct LeafIter {
-    l: Link<Num>,
-    ldir: Dir,
+    l: Link<Node>,
+    dir: Dir,
 }
 
 impl Iterator for LeafIter {
-    type Item = Lin<Num>;
+    type Item = Lin<Node>;
 
-    fn next(&mut self) -> Link<Num> {
-        match self.l {
+    fn next(&mut self) -> Link<Node> {
+        match self.l.take() {
             Some(n) => {
-                let next = match self.ldir {
-                    Dir::Left => (*n).borrow().lneigh,
-                    Dir::Right => (*n).borrow().rneigh,
-                };
-                match next {
-                    Some(l) => self.l.replace(l),
-                    None => self.l.take(),
+                {
+                    let x = (*n).borrow();
+                    if let Node::Leaf(num) = &*x {
+                        let next = match self.dir {
+                            Dir::Left => &num.lneigh,
+                            Dir::Right => &num.rneigh,
+                        };
+                        if let Some(l) = next {
+                            self.l.replace(Rc::clone(&l));
+                        }
+                    }
                 }
+                Some(n)
             }
             None => None,
         }
     }
+}
+
+fn iter_leafs(l: &Link<Node>, dir: Dir) -> LeafIter {
+    /*
+    LeafIter {
+        l: match l {
+            Some(n) => match &*(*n).borrow() {
+                Node::Leaf(l) => l.as_ref().map(Rc::clone),
+                _ => None,
+            },
+            _ => None,
+        },
+        dir,
+    }
+    */
+    iter_num(&leftmost_leaf(l), dir)
+}
+
+fn iter_num(l: &Link<Node>, dir: Dir) -> LeafIter {
+    let l = leftmost_leaf(l);
+    LeafIter {
+        l: l.as_ref().map(Rc::clone),
+        dir,
+    }
+}
+
+fn leftmost_leaf(l: &Link<Node>) -> Link<Node> {
+    let mut current = l;
+    let mut tmp;
+    while let Some(n) = current {
+        let x = Rc::clone(n);
+        match &*(*x).borrow() {
+            Node::Leaf(_) => return current.as_ref().map(Rc::clone),
+            Node::Pair { l, r: _ } => {
+                tmp = l.as_ref().map(Rc::clone);
+                current = &tmp;
+            }
+        };
+    }
+    None
 }
 
 impl Display for PLin {
@@ -101,35 +146,16 @@ fn parse(input: &str) -> Vec<Lin<Node>> {
 
 fn redo_rneigh(left: &Link<Node>) {
     let mut right = None;
-    let n;
-    if let Some(ref nr) = left {
-        n = Rc::clone(nr);
-    } else {
-        return;
-    }
-    let mut left = Some(n);
-    while let Some(ref n) = left {
-        let n = Rc::clone(n);
-        let mut x = n.borrow_mut();
-        if let Node::Leaf {
-            val: _,
-            ref lneigh,
-            ref mut rneigh,
-        } = *x
-        {
-            if rneigh.is_some() {
+    for l in iter_num(left, Dir::Left) {
+        if let Node::Leaf(num) = &mut *(*l).borrow_mut() {
+            if num.rneigh.is_some() {
                 // Reached already done section
                 break;
             }
             if let Some(r) = right {
-                rneigh.replace(r);
+                num.rneigh.replace(r);
             }
-            right = Some(Rc::clone(&n));
-            if let Some(l) = lneigh {
-                left = Some(Rc::clone(l));
-            } else {
-                break;
-            }
+            right = Some(Rc::clone(&l));
         }
     }
 }
@@ -161,22 +187,24 @@ fn parse_node(input: &str, left: Link<Node>) -> (Lin<Node>, Link<Node>, usize) {
         '[' => parse_tree(input, left),
         '0'..='9' => {
             let (l, l1) = parse_literal(input, left);
-            (Rc::clone(&l), Some(l), l1)
+            let n = Rc::new(RefCell::new(Node::Leaf(l)));
+            let ln = Rc::clone(&n);
+            (n, Some(ln), l1)
         }
         _ => panic!("Unexpected token"),
     }
 }
-fn parse_literal(input: &str, left: Link<Node>) -> (Lin<Node>, usize) {
+fn parse_literal(input: &str, left: Link<Node>) -> (Num, usize) {
     let s = input
         .chars()
         .take_while(|c| c.is_digit(10))
         .collect::<String>();
     (
-        Rc::new(RefCell::new(Node::Leaf {
+        Num {
             val: s.parse::<u8>().expect("not int"),
             lneigh: left,
             rneigh: None,
-        })),
+        },
         s.len(),
     )
 }
@@ -215,6 +243,12 @@ fn print_type_of<T>(_: &T) {
 }
 
 fn split(t: Lin<Node>) -> Link<Node> {
+    /*
+    for l in iter_leafs(&Some(t), Dir::Right) {
+        if (*l).borrow().val >= 10 {}
+    }
+    */
+
     /*
     let mut result = t.clone();
     let mut next: Vec<&mut Box<Node>> = vec![&mut result];
@@ -274,46 +308,18 @@ fn test_neigh_chain() {
     let tmp = parse(x);
     let f = tmp.first().unwrap();
     match &*f.borrow() {
-        Node::Pair { l, r: _ } => match &*RefCell::borrow(l.as_ref().unwrap()) {
-            Node::Leaf {
-                val,
-                lneigh,
-                rneigh,
-            } => {
-                assert!(lneigh.is_none());
-                let mut values: Vec<u8> = vec![*val];
-                let r;
-                if let Some(ref rn) = rneigh {
-                    r = Rc::clone(rn);
-                } else {
-                    panic!("no rneigh");
+        Node::Pair { l, r: _ } => {
+            let mut values: Vec<u8> = Vec::new();
+            for l in iter_leafs(l, Dir::Right) {
+                if let Node::Leaf(num) = &*(*l).borrow() {
+                    values.push(num.val);
                 }
-                let mut r = Some(r);
-                while let Some(next) = r {
-                    let n = next.borrow();
-                    if let Node::Leaf {
-                        ref val,
-                        lneigh: _,
-                        ref rneigh,
-                    } = &*n
-                    {
-                        values.push(*val);
-                        if let Some(rn) = rneigh {
-                            r = Some(Rc::clone(rn));
-                        } else {
-                            break;
-                        }
-                    } else {
-                        panic!("rneigh not leaf");
-                    }
-                }
-                assert_eq!(
-                    vec![1, 1, 3, 5, 3, 1, 3, 8, 7, 4, 9, 6, 9, 8, 2, 7, 3],
-                    values
-                );
             }
-            _ => panic!("not leaf"),
-        },
+            assert_eq!(
+                vec![1, 1, 3, 5, 3, 1, 3, 8, 7, 4, 9, 6, 9, 8, 2, 7, 3],
+                values
+            );
+        }
         _ => panic!("not pair"),
     };
 }
