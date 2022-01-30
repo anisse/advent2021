@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 
-type Link<T> = Option<Rc<RefCell<T>>>;
-type Lin<T> = Rc<RefCell<T>>;
+type Link<T> = Option<Rc<RefCell<Option<T>>>>;
+type Lin<T> = Rc<RefCell<Option<T>>>;
 
 #[derive(Debug)]
 struct Num {
@@ -20,7 +20,7 @@ impl Display for Num {
 #[derive(Debug)]
 enum Node {
     Leaf(Num),
-    Pair { l: Link<Node>, r: Link<Node> },
+    Pair { l: Lin<Node>, r: Lin<Node> },
 }
 
 impl Display for Node {
@@ -30,8 +30,8 @@ impl Display for Node {
             Node::Pair { l, r } => write!(
                 f,
                 "[{},{}]",
-                (**l.as_ref().unwrap()).borrow(),
-                RefCell::borrow(r.as_ref().unwrap())
+                &*(*l).borrow().as_ref().ok_or(std::fmt::Error)?,
+                &*(*r).borrow().as_ref().ok_or(std::fmt::Error)?,
             ),
         }
     }
@@ -41,6 +41,11 @@ struct PLin(Lin<Node>);
 impl PLin {
     fn new(l: &Lin<Node>) -> Self {
         PLin(Rc::clone(l))
+    }
+}
+impl Display for PLin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{}", (*self.0).borrow().as_ref().ok_or(std::fmt::Error)?)
     }
 }
 
@@ -62,13 +67,13 @@ impl Iterator for LeafIter {
             Some(n) => {
                 {
                     let x = (*n).borrow();
-                    if let Node::Leaf(num) = &*x {
+                    if let Node::Leaf(num) = x.as_ref().unwrap() {
                         let next = match self.dir {
                             Dir::Left => &num.lneigh,
                             Dir::Right => &num.rneigh,
                         };
                         if let Some(l) = next {
-                            self.l.replace(Rc::clone(&l));
+                            self.l.replace(Rc::clone(l));
                         }
                     }
                 }
@@ -80,23 +85,11 @@ impl Iterator for LeafIter {
 }
 
 fn iter_leafs(l: &Link<Node>, dir: Dir) -> LeafIter {
-    /*
-    LeafIter {
-        l: match l {
-            Some(n) => match &*(*n).borrow() {
-                Node::Leaf(l) => l.as_ref().map(Rc::clone),
-                _ => None,
-            },
-            _ => None,
-        },
-        dir,
-    }
-    */
     iter_num(&leftmost_leaf(l), dir)
 }
 
 fn iter_num(l: &Link<Node>, dir: Dir) -> LeafIter {
-    let l = leftmost_leaf(l);
+    // TODO: assert we have a leaf
     LeafIter {
         l: l.as_ref().map(Rc::clone),
         dir,
@@ -108,22 +101,19 @@ fn leftmost_leaf(l: &Link<Node>) -> Link<Node> {
     let mut tmp;
     while let Some(n) = current {
         let x = Rc::clone(n);
-        match &*(*x).borrow() {
-            Node::Leaf(_) => return current.as_ref().map(Rc::clone),
-            Node::Pair { l, r: _ } => {
-                tmp = l.as_ref().map(Rc::clone);
-                current = &tmp;
-            }
+        if let Some(n) = &*(*x).borrow() {
+            match n {
+                Node::Leaf(_) => return current.as_ref().map(Rc::clone),
+                Node::Pair { l, r: _ } => {
+                    tmp = Some(Rc::clone(l));
+                    current = &tmp;
+                }
+            };
         };
     }
     None
 }
 
-impl Display for PLin {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "{}", RefCell::borrow(&*(self.0)))
-    }
-}
 fn main() {
     let pairs = parse(include_str!("../input.txt"));
     //part 1
@@ -147,15 +137,17 @@ fn parse(input: &str) -> Vec<Lin<Node>> {
 fn redo_rneigh(left: &Link<Node>) {
     let mut right = None;
     for l in iter_num(left, Dir::Left) {
-        if let Node::Leaf(num) = &mut *(*l).borrow_mut() {
-            if num.rneigh.is_some() {
-                // Reached already done section
-                break;
+        if let Some(n) = &mut *(*l).borrow_mut() {
+            if let Node::Leaf(num) = n {
+                if num.rneigh.is_some() {
+                    // Reached already done section
+                    break;
+                }
+                if let Some(r) = right {
+                    num.rneigh.replace(r);
+                }
+                right = Some(Rc::clone(&l));
             }
-            if let Some(r) = right {
-                num.rneigh.replace(r);
-            }
-            right = Some(Rc::clone(&l));
         }
     }
 }
@@ -173,21 +165,14 @@ fn parse_tree(input: &str, left: Link<Node>) -> (Lin<Node>, Link<Node>, usize) {
     assert_eq!(input.chars().nth(pos), Some(']'));
     pos += 1;
     redo_rneigh(&left);
-    (
-        Rc::new(RefCell::new(Node::Pair {
-            l: Some(l),
-            r: Some(r),
-        })),
-        left,
-        pos,
-    )
+    (Rc::new(RefCell::new(Some(Node::Pair { l, r }))), left, pos)
 }
 fn parse_node(input: &str, left: Link<Node>) -> (Lin<Node>, Link<Node>, usize) {
     match input.chars().next().unwrap() {
         '[' => parse_tree(input, left),
         '0'..='9' => {
             let (l, l1) = parse_literal(input, left);
-            let n = Rc::new(RefCell::new(Node::Leaf(l)));
+            let n = Rc::new(RefCell::new(Some(Node::Leaf(l))));
             let ln = Rc::clone(&n);
             (n, Some(ln), l1)
         }
@@ -217,10 +202,7 @@ fn addition_magnitude(pairs: Vec<Lin<Node>>) -> usize {
 }
 
 fn add(l: Lin<Node>, r: Lin<Node>) -> Lin<Node> {
-    Rc::new(RefCell::new(Node::Pair {
-        l: Some(l),
-        r: Some(r),
-    }))
+    Rc::new(RefCell::new(Some(Node::Pair { l, r })))
 }
 
 fn reduce(mut t: Lin<Node>) -> Lin<Node> {
@@ -231,7 +213,7 @@ fn reduce(mut t: Lin<Node>) -> Lin<Node> {
             t = x;
             change = true;
         }
-        if let Some(x) = split(Rc::clone(&t)) {
+        if let Some(x) = split(&Rc::clone(&t)) {
             t = x;
             change = true;
         }
@@ -242,12 +224,44 @@ fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>())
 }
 
-fn split(t: Lin<Node>) -> Link<Node> {
-    /*
+fn split(t: &Lin<Node>) -> Link<Node> {
+    let t = Rc::clone(t);
+    let root = Rc::clone(&t);
     for l in iter_leafs(&Some(t), Dir::Right) {
-        if (*l).borrow().val >= 10 {}
+        let node = &mut *(*l).borrow_mut();
+        if let Some(Node::Leaf(num)) = node {
+            if num.val >= 10 {
+                // replace with a split
+                let right = Rc::new(RefCell::new(None));
+                let left = Rc::new(RefCell::new(None));
+                if let Some(n) = &num.lneigh {
+                    if let Some(Node::Leaf(ref mut lnum)) = &mut *(*n).borrow_mut() {
+                        lnum.rneigh.replace(Rc::clone(&left));
+                    }
+                }
+                if let Some(n) = &num.rneigh {
+                    if let Some(Node::Leaf(ref mut rnum)) = &mut *(*n).borrow_mut() {
+                        rnum.lneigh.replace(Rc::clone(&right));
+                    }
+                }
+                (*left).borrow_mut().replace(Node::Leaf(Num {
+                    val: num.val / 2,
+                    lneigh: num.lneigh.take(),
+                    rneigh: Some(Rc::clone(&right)),
+                }));
+                (*right).borrow_mut().replace(Node::Leaf(Num {
+                    val: num.val - num.val / 2,
+                    lneigh: Some(Rc::clone(&left)),
+                    rneigh: num.rneigh.take(),
+                }));
+                let new = Node::Pair { l: left, r: right };
+                node.replace(new);
+                //if let Some(Node::Leaf(num)) = &*(*left).borrow_mut() {}
+                return Some(root);
+            }
+        }
     }
-    */
+    None
 
     /*
     let mut result = t.clone();
@@ -286,7 +300,6 @@ fn split(t: Lin<Node>) -> Link<Node> {
         };
     }
     */
-    None
 }
 
 fn explode(t: Lin<Node>) -> Link<Node> {
@@ -308,10 +321,11 @@ fn test_neigh_chain() {
     let tmp = parse(x);
     let f = tmp.first().unwrap();
     match &*f.borrow() {
-        Node::Pair { l, r: _ } => {
+        Some(Node::Pair { l, r: _ }) => {
             let mut values: Vec<u8> = Vec::new();
-            for l in iter_leafs(l, Dir::Right) {
-                if let Node::Leaf(num) = &*(*l).borrow() {
+            let v = Some(Rc::clone(l));
+            for l in iter_leafs(&v, Dir::Right) {
+                if let Some(Node::Leaf(num)) = &*(*l).borrow() {
                     values.push(num.val);
                 }
             }
@@ -335,7 +349,7 @@ fn test_explode() {
 fn test_split() {
     let tmp = parse("[[[[0,7],4],[15,[0,13]]],[1,1]]");
     let x = tmp.first().unwrap();
-    //assert!(split(&mut x2));
+    split(x);
     assert_eq!(
         format!("{}", PLin::new(x)),
         "[[[[0,7],4],[[7,8],[0,13]]],[1,1]]"
