@@ -262,44 +262,6 @@ fn split(t: &Lin<Node>) -> Link<Node> {
         }
     }
     None
-
-    /*
-    let mut result = t.clone();
-    let mut next: Vec<&mut Box<Node>> = vec![&mut result];
-    println!("{}", t);
-    while let Some(n) = next.pop() {
-        println!("{}", &*n);
-        match &*n.as_mut() {
-            Node::Leaf(v) => {
-                if *v > 10 {
-                    //println!("{:p}", t);
-                    //println!("{:p}", n);
-                    //dbg!(v);
-                    //dbg!(&n);
-                    //print_type_of(&n);
-                    //print_type_of(&*n);
-                    //
-                    // *n = Node::Pair {
-                    //    l: Box::new(Node::Leaf(*v / 2)),
-                    //    r: Box::new(Node::Leaf(*v / 2 + *v % 2)),
-                    //};
-                    //
-                    n.replace(Node::Pair {
-                        l: Box::new(Node::Leaf(v / 2)),
-                        r: Box::new(Node::Leaf(v / 2 + v % 2)),
-                    });
-                    //dbg!(&n);
-                    //dbg!(t);
-                    return Some(result);
-                }
-            }
-            Node::Pair { mut l, mut r } => {
-                next.push(&mut r);
-                next.push(&mut l);
-            }
-        };
-    }
-    */
 }
 
 fn explode(t: Lin<Node>) -> Link<Node> {
