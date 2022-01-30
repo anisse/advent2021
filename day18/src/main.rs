@@ -220,9 +220,6 @@ fn reduce(mut t: Lin<Node>) -> Lin<Node> {
     }
     t
 }
-fn print_type_of<T>(_: &T) {
-    println!("{}", std::any::type_name::<T>())
-}
 
 fn split(t: &Lin<Node>) -> Link<Node> {
     let t = Rc::clone(t);
