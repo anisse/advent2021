@@ -123,8 +123,9 @@ fn main() {
     let magnitude = addition_magnitude(pairs);
     println!("Magnitude: {}", magnitude);
     //part 2
-    //let magnitude = addition_magniture2(&pairs);
-    //println!("Magnitude2: {}", magnitude);
+    let pairs = parse(include_str!("../input.txt"));
+    let largest = largest_magnitude(pairs);
+    println!("Largest Magnitude: {}", largest);
 }
 fn parse(input: &str) -> Vec<Lin<Node>> {
     input
@@ -328,6 +329,24 @@ fn magnitude(t: Lin<Node>) -> usize {
         _ => unreachable!(),
     }
 }
+
+fn largest_magnitude(pairs: Vec<Lin<Node>>) -> usize {
+    let mut max = 0;
+    for (i, p1) in pairs.iter().enumerate() {
+        for p2 in pairs.iter().skip(i) {
+            // TODO: deep copy :-(
+            //cheap one: serialize + parse
+            let pairs1 = parse(&format!("{}\n{}", PLin::new(p1), PLin::new(p2)));
+            let mag = addition_magnitude(pairs1);
+            max = if mag > max { mag } else { max };
+            let pairs2 = parse(&format!("{}\n{}", PLin::new(p2), PLin::new(p1)));
+            let mag = addition_magnitude(pairs2);
+            max = if mag > max { mag } else { max };
+        }
+    }
+    max
+}
+
 #[test]
 fn test_parse() {
     let x = "[[[[1,3],[5,3]],[[1,3],[8,7]]],[[[4,9],[6,9]],[[8,2],[7,3]]]]";
@@ -493,6 +512,7 @@ fn test() {
     let magnitude = addition_magnitude(pairs);
     assert_eq!(magnitude, 4140);
     //part 2
-    // let magnitude = addition_magniture2(&pairs);
-    // assert_eq!(magnitude, 42);
+    let pairs = parse(include_str!("../sample.txt"));
+    let largest = largest_magnitude(pairs);
+    assert_eq!(largest, 3993);
 }
